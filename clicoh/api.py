@@ -1,131 +1,141 @@
-from django.db import IntegrityError, transaction
 from django.db.models import F
-from requests import delete
-from rest_framework import viewsets, serializers, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
+from django.db import IntegrityError, transaction
+from rest_framework.exceptions import APIException
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, serializers
 from .models import Order, OrderDetail, Product
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    price = serializers.FloatField(min_value=0)
+    stock = serializers.IntegerField(min_value=0)
+
     class Meta:
         model = Product
-        fields = ('id', 'price', 'stock', 'name')
+        fields = ('id', 'price', 'stock', 'name',)
+
+
+@permission_classes([IsAuthenticated])
+class ProductViewSet(viewsets.ModelViewSet):
+    """API de Productos """
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+
+class OrderDetailProductSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(read_only=True)
+    price = serializers.FloatField(read_only=True)
+    stock = serializers.FloatField(read_only=True)
+    id = serializers.IntegerField()
+
+    class Meta:
+        model = Product
+        fields = ('id', 'name', 'price', 'stock')
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
+    product = OrderDetailProductSerializer()
+    quantity = serializers.IntegerField(min_value=0)
+    id = serializers.IntegerField(required=False)
 
     class Meta:
         model = OrderDetail
-        fields = ('id', 'quantity', 'product')
+        fields = ('id', 'quantity', 'product',)
 
 
 class OrderSerializer(serializers.ModelSerializer):
     total = serializers.FloatField(source='get_total', read_only=True)
     total_usd = serializers.FloatField(source='get_total_usd', read_only=True)
-    order_detail = serializers.ListSerializer(child=OrderDetailSerializer())
+    order_detail = OrderDetailSerializer(many=True)
+    date_time = serializers.DateTimeField(format="%Y-%m-%d")
 
     class Meta:
         model = Order
-        fields = ('id', 'date_time', 'total', 'total_usd', 'order_detail')
-
-
-class ProductStockSerializer(serializers.Serializer):
-    stock = serializers.IntegerField(min_value=0)
-
-
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
-
-    @action(detail=True, methods=['POST'], name='Change Stock', serializer_class=ProductStockSerializer)
-    def stock(self, request, pk=None):
-        """Update the product's stock."""
-        product = self.get_object()
-        serializer = ProductStockSerializer(data=request.data)
-        if serializer.is_valid():
-            product.stock = serializer.validated_data['stock']
-            product.save()
-            return Response({'status': 'stock set'})
-        else:
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-
-
-class OrderCreationProductsSerializer(serializers.Serializer):
-
-    product_id = serializers.IntegerField()
-    # que la cantidad de cada producto sea mayor a 0
-    quantity = serializers.IntegerField(min_value=1)
-
-    def validate(self, attrs):
-        product = Product.objects.get(pk=attrs["product_id"])
-        if product.stock < attrs["quantity"]:
-            raise serializers.ValidationError(
-                f"La cantidad de {attrs['quantity']} {product.name} solicitada supera el stock de {product.stock} unidades disponibles")
-        return attrs
-
-
-class OrderCreationSerializer(serializers.Serializer):
-
-    products = serializers.ListField(
-        child=OrderCreationProductsSerializer(), min_length=1)
+        fields = ('id', 'date_time', 'total', 'total_usd', 'order_detail',)
 
     def create(self, validated_data):
+        order_detail_data = validated_data.pop('order_detail')
+
+        with transaction.atomic():
+            order = Order.objects.create(**validated_data)
+            for od in order_detail_data:
+
+                order.order_detail.create(
+                    quantity=od["quantity"],
+                    product_id=od["product"]["id"]
+                )
+
+                # actualiza el stock del producto
+                try:
+                    with transaction.atomic():  # crea un savepoint para chequear contra la bd
+                        Product.objects.filter(pk=od["product"]["id"]).update(
+                            stock=F("stock") - od["quantity"])
+
+                except IntegrityError as ie:
+                    raise serializers.ValidationError({"order_detail":
+                                                       ["El producto debe tener stock suficiente para registrar la orden"]})
+
+            return order
+
+    def update(self, order: Order, validated_data):
+        order_detail_data = validated_data.pop('order_detail')
         try:
             with transaction.atomic():
-                order = Order()
-                order.save()
-                for product_to_place in validated_data["products"]:
+                order.date_time = validated_data["date_time"]
+                for od_data in order_detail_data:
+                    order_detail: OrderDetail = order.order_detail.get(
+                        pk=od_data["id"])
 
-                    # actualiza el stock
-                    Product.objects.filter(pk=product_to_place["product_id"]).update(
-                        stock=F("stock") - product_to_place["quantity"])
+                    nuevo_stock = od_data["quantity"] - order_detail.quantity
 
-                    # genera el detalle para el producto
-                    OrderDetail(
-                        order=order, product_id=product_to_place["product_id"], quantity=product_to_place["quantity"]).save()
+                    # hubo cambios en el stock?
+                    if nuevo_stock:
+                        Product.objects.filter(pk=order_detail.product_id).update(
+                            stock=F("stock") - nuevo_stock)
+
+                        # si la cantidad quedo en 0 se borra el item
+                        if not od_data["quantity"]:
+                            order_detail.delete()
+                        else:
+                            order.order_detail.filter(pk=od_data["id"]).update(
+                                quantity=od_data["quantity"])
 
                 return order
         except IntegrityError as ie:
+            raise APIException(f"Error de integridad de datos ({ie.args[0]})")
+
+    def validate_order_detail(self, order_detail_attrs):
+        # no puede haber productos repetidos en la orden
+
+        # me quedo con los ids de los productos
+        id_productos = [detail["product"]["id"]
+                        for detail in order_detail_attrs]
+
+        # si hay alguno que aparezca mas de una vez levanta la excepcion de validacion
+        if max([id_productos.count(id) for id in id_productos]) > 1:
             raise serializers.ValidationError(
-                "El producto se encuentra mas de una vez para la orden")
+                "Los productos no pueden repetirse dentro de la misma orden")
+
+        return order_detail_attrs
 
 
+@permission_classes([IsAuthenticated])
 class OrderViewSet(viewsets.ModelViewSet):
+    """API de Ordenes """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
 
-    def create(self, request, *args, **kwargs):
-        ...
-
-    @action(detail=False, methods=['POST'], name='Place an order', serializer_class=OrderCreationSerializer)
-    def place_order(self, request):
-        serializer = OrderCreationSerializer(data=request.data)
-        if serializer.is_valid():
-            instance = serializer.save()
-            return Response(OrderSerializer(instance).data)
-        else:
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, *args, **kwargs):
-        order = self.get_object()
+    def perform_destroy(self, instance):
+        order: Order = self.get_object()
 
         # devuelve el stock a los productos
+        bulk_product_updates = []
+
         for order_detail in order.order_detail.all():
-            Product.objects.filter(pk=order_detail.product_id).update(
-                stock=F("stock") + order_detail.quantity)
+            order_detail.product.stock = F("stock") + order_detail.quantity
+            bulk_product_updates.append(order_detail.product)
 
-        return super().destroy(request, *args, **kwargs)
+        Product.objects.bulk_update(bulk_product_updates, ['stock'])
 
-    def update(self, request, *args, **kwargs):
-        # * Editar una orden (inclusive sus detalles). Debe actualizar el stock del producto
-        # TODO FALTA SEGUIR CON ESTE
-        return super().update(request, *args, **kwargs)
-
-
-class OrderDetailViewSet(viewsets.ModelViewSet):
-    queryset = OrderDetail.objects.all()
-    serializer_class = OrderDetailSerializer
+        return super().perform_destroy(instance)

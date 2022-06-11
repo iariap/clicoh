@@ -6,16 +6,17 @@ from functools import cache
 class DolarService():
 
     @cache
-    def get_cotizacion():
-        # https://www.dolarsi.com/api/api.php?type=valoresprincipales
-        casas = requests.get(
-            "https://www.dolarsi.com/api/api.php?type=valoresprincipales").json()
+    def cotizacion():
+        cotizacion = "0"        
+        try:
+            casas = requests.get(
+                "https://www.dolarsi.com/api/api.php?type=valoresprincipales").json()
 
-        cotizacion = 0
+            for casa in casas:
+                if casa["casa"]["nombre"] == "Dolar Blue":
+                    cotizacion = casa["casa"]["venta"]
+                    break
+        except:
+            pass
 
-        for casa in casas:
-            if casa["casa"]["nombre"] == "Dolar Blue":
-                cotizacion = casa["casa"]["venta"].replace(",", ".")
-                break
-
-        return float(cotizacion)
+        return float(cotizacion.replace(",", "."))

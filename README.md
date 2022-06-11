@@ -1,51 +1,72 @@
 # Login
 
 ```bash
-http POST http://localhost:8000/api/token/ username=admin password=admin
+access_token=$(http POST https://iariap.pythonanywhere.com/api/token/ username=admin password=admin | jq '.access' -)
+access_token=${access_token//\"}
 ```
 
-# producto
+
+# productos
+
+## Listado de productos
+```bash
+http https://iariap.pythonanywhere.com/api/product/ Authorization:"Bearer ${access_token}"
+```
 
 ## Registrar/Editar
 ```bash
-http POST http://127.0.0.1:8000/product/ name="Lapicera" price=200 stock=1 "Authorization: Bearer XXX"
+http POST https://iariap.pythonanywhere.com/api/product/ name="Lapicera" price=200 stock=1 Authorization:"Bearer ${access_token}"
 ```
 
 ## Eliminar
 ```bash
-http DELETE http://127.0.0.1:8000/product/2/
+http DELETE https://iariap.pythonanywhere.com/api/product/2/ Authorization:"Bearer ${access_token}"
 ```
 
 ## Consultar un producto
 ```bash
-http http://127.0.0.1:8000/product/2/
-```
-
-## Listar todos los productos
-```bash
-http http://127.0.0.1:8000/product/
+http https://iariap.pythonanywhere.com/api/product/2/ Authorization:"Bearer ${access_token}"
 ```
 
 ## Modificar el stock
 ```bash
-http POST http://127.0.0.1:8000/product/6/stock/ stock=10
-```
-```bash
-http PATCH http://127.0.0.1:8000/product/1/ stock=26
+http PATCH https://iariap.pythonanywhere.com/api/product/1/ stock=26 Authorization:"Bearer ${access_token}"
 ```
 
 # Crear una orden
 ## Con quantity mas grande que el stock
 ```bash
-http POST http://localhost:8000/order/place_order/ products:='[{"product_id":1, "quantity":20}]'
+http POST https://iariap.pythonanywhere.com/api/order/ date_time="2022-06-14" order_detail:='[{"product":{"id": 1}, "quantity":2}, {"product":{"id":2}, "quantity":2000}]' Authorization:"Bearer ${access_token}"
 ```
 
 ## El producto se encuentra repetido en la orden
 ```bash
-http POST http://localhost:8000/order/place_order/ products:='[{"product_id":1, "quantity":2}, {"product_id":1, "quantity":2}]'
+http POST https://iariap.pythonanywhere.com/api/order/ date_time="2022-06-14" order_detail:='[{"product":{"id": 1}, "quantity":2}, {"product":{"id":1}, "quantity":2}]' Authorization:"Bearer ${access_token}"
 ```
 
 ## Creacion OK
 ```bash
-http POST http://localhost:8000/order/place_order/ products:='[{"product_id":1, "quantity":2}, {"product_id":2, "quantity":2}]'
+http POST https://iariap.pythonanywhere.com/api/order/ products:='{date_time:"2022-06-14", order_detail:[{"product_id":1, "quantity":2}, {"product_id":2, "quantity":2}]}' Authorization:"Bearer ${access_token}"
+```
+
+## Borrado de la Orden OK
+```bash
+http DELETE https://iariap.pythonanywhere.com/api/order/1/ Authorization:"Bearer ${access_token}"
+```
+
+# Docker
+## Construir la imagen
+```bash
+docker build . -t backend-clickoh:latest
+```
+## Levantar el backend
+
+Si la base de datos no esta creada crearla con el comando:
+ ```bash
+ touch db.sqlite3
+```
+Y luego para levantar el servicio ejecutar:
+
+```bash
+docker run -it -p 8000:8000 --mount type=bind,source=$(pwd)/db.sqlite3,target=/code/db.sqlite3 backend-clickoh:latest 
 ```
