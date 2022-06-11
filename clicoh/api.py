@@ -92,6 +92,18 @@ class OrderCreationSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "El producto se encuentra mas de una vez para la orden")
 
+# serializers de edicion de la orden
+
+
+class OrderEditProductsSerializer(serializers.ModelSerializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class OrderEditSerializer(serializers.Serializer):
+    products = serializers.ListField(
+        child=OrderEditProductsSerializer(), min_length=1)
+
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
