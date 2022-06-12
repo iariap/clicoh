@@ -43,5 +43,4 @@ urlpatterns = [
 router = routers.SimpleRouter()
 router.register(r"product", clicoh_api.ProductViewSet)
 router.register(r"order", clicoh_api.OrderViewSet)
-router.register(r"orderdetail", clicoh_api.OrderDetailViewSet)
 urlpatterns += router.urls
