@@ -6,8 +6,7 @@ from functools import cache
 class DolarService():
 
     @cache
-    def get_cotizacion():
-        # https://www.dolarsi.com/api/api.php?type=valoresprincipales
+    def cotizacion():
         casas = requests.get(
             "https://www.dolarsi.com/api/api.php?type=valoresprincipales").json()
 
@@ -15,7 +14,7 @@ class DolarService():
 
         for casa in casas:
             if casa["casa"]["nombre"] == "Dolar Blue":
-                cotizacion = casa["casa"]["venta"].replace(",", ".")
+                cotizacion = casa["casa"]["venta"]
                 break
 
-        return float(cotizacion)
+        return float(cotizacion.replace(",", "."))

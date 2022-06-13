@@ -18,7 +18,7 @@ class Order(models.Model):
         return sum([order.quantity * order.product.price for order in OrderDetail.objects.filter(order_id=self.id)])
 
     def get_total_usd(self):
-        cotizacion = DolarService.get_cotizacion()
+        cotizacion = DolarService.cotizacion()
         return self.get_total() * cotizacion
 
 

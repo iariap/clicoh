@@ -1,9 +1,10 @@
-from requests import delete
-from rest_framework import viewsets, serializers, status
-from .models import Order, OrderDetail, Product
 from django.db.models import F
 from django.db import IntegrityError, transaction
 from rest_framework.exceptions import APIException
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, serializers
+from .models import Order, OrderDetail, Product
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -15,7 +16,9 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ('id', 'price', 'stock', 'name',)
 
 
+@permission_classes([IsAuthenticated])
 class ProductViewSet(viewsets.ModelViewSet):
+    """API de Productos """
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
@@ -88,16 +91,35 @@ class OrderSerializer(serializers.ModelSerializer):
                         # si la cantidad quedo en 0 se borra el item
                         if not od_data["quantity"]:
                             order_detail.delete()
+                        else:
+                            order.order_detail.filter(pk=od_data["id"]).update(
+                                quantity=od_data["quantity"])
 
                 return order
         except IntegrityError as ie:
             raise APIException(f"Error de integridad de datos ({ie.args[0]})")
 
 
+@permission_classes([IsAuthenticated])
 class OrderViewSet(viewsets.ModelViewSet):
+    """API de Ordenes """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
 
+    def perform_destroy(self, instance):
+        order: Order = self.get_object()
 
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
+        # devuelve el stock a los productos
+        bulk_product_updates = []
+
+        for order_detail in order.order_detail.all():
+            order_detail.product.stock = F("stock") + order_detail.quantity
+            bulk_product_updates.append(order_detail.product)
+
+        Product.objects.bulk_update(bulk_product_updates, ['stock'])
+
+#        for order_detail in order.order_detail.all():
+#            Product.objects.filter(pk = order_detail.product_id).update(
+#                stock = F("stock") + order_detail.quantity)
+
+        return super().perform_destroy(instance)

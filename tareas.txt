@@ -13,7 +13,7 @@ X        En caso no contar con stock se debe retornar un error de validación.
         Chequeos:
 X            que la cantidad de cada producto sea mayor a 0
 X            que no se repitan productos en el mismo pedido
-    Eliminar una orden. Restaura stock del producto
+X    Eliminar una orden. Restaura stock del producto
 X    Consultar una orden y sus detalles
 X    Listar todas las ordenes
 

@@ -6,38 +6,35 @@ http POST http://localhost:8000/api/token/ username=admin password=admin
 
 # producto
 
+## Listado de productos
+```bash
+http http://127.0.0.1:8000/api/product/ Authorization:"Bearer XXX"
+```
+
 ## Registrar/Editar
 ```bash
-http POST http://127.0.0.1:8000/product/ name="Lapicera" price=200 stock=1 "Authorization: Bearer XXX"
+http POST http://127.0.0.1:8000/api/product/ name="Lapicera" price=200 stock=1 Authorization:"Bearer XXX"
 ```
 
 ## Eliminar
 ```bash
-http DELETE http://127.0.0.1:8000/product/2/
+http DELETE http://127.0.0.1:8000/api/product/2/ Authorization:"Bearer XXX"
 ```
 
 ## Consultar un producto
 ```bash
-http http://127.0.0.1:8000/product/2/
-```
-
-## Listar todos los productos
-```bash
-http http://127.0.0.1:8000/product/
+http http://127.0.0.1:8000/api/product/2/ Authorization:"Bearer XXX"
 ```
 
 ## Modificar el stock
 ```bash
-http POST http://127.0.0.1:8000/product/6/stock/ stock=10
-```
-```bash
-http PATCH http://127.0.0.1:8000/product/1/ stock=26
+http PATCH http://127.0.0.1:8000/api/product/1/ stock=26 Authorization:"Bearer XXX"
 ```
 
 # Crear una orden
 ## Con quantity mas grande que el stock
 ```bash
-http POST http://localhost:8000/order/place_order/ products:='[{"product_id":1, "quantity":20}]'
+http POST http://localhost:8000/api/order/ products:='[{"product_id":1, "quantity":20}]'
 ```
 
 ## El producto se encuentra repetido en la orden

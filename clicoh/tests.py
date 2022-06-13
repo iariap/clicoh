@@ -1,16 +1,35 @@
 from datetime import datetime
+from itertools import product
 from django.urls import reverse
 from django.test import TestCase
+from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
-
 from clicoh.models import Order, OrderDetail, Product
 # Create your tests here.
 
 
-class ProductTest(TestCase):
-    def setUp(self):
+class ClickOhTest(TestCase):
+    def setUp(self) -> None:
+        get_user_model().objects.create_user(
+            username='user', password='pass', is_active=True)
+
+        response = self.client.post(reverse(
+            'api-jwt-auth'), {'username': 'user', 'password': 'pass'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.token = response.data['access']
         self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+
+    def test_login(self):
+        response = self.client.get(
+            reverse('product-list'), format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class ProductTest(ClickOhTest):
+    def setUp(self):
+        super().setUp()
         self.product_data = {
             'name': 'Mesa de comedor',
             'price': 50,
@@ -63,9 +82,9 @@ class ProductTest(TestCase):
         self.assertEqual(data['stock'], new_stock)
 
 
-class OrderCreationTest(TestCase):
+class OrderCreationTest(ClickOhTest):
     def setUp(self) -> None:
-        self.client = APIClient()
+        super().setUp()
         self.order_data = {
             "date_time": "2022-06-12",
             "order_detail": [
@@ -81,7 +100,6 @@ class OrderCreationTest(TestCase):
         }
         Product.objects.create(name="Silla", stock=100, price=100)
         Product.objects.create(name="Mesa", stock=100, price=200)
-        return super().setUp()
 
     def test_creacion_ok(self):
         response = self.client.post(
@@ -106,21 +124,16 @@ class OrderCreationTest(TestCase):
         self.assertEqual(Product.objects.get(pk=2).stock, 100)
 
 
-class OrderEditingTest(TestCase):
+class OrderEditingTest(ClickOhTest):
     def setUp(self) -> None:
-        self.client = APIClient()
+        super().setUp()
         p1 = Product.objects.create(name="Silla", stock=99, price=100)
         p2 = Product.objects.create(name="Mesa", stock=99, price=200)
         p3 = Product.objects.create(name="Banco", stock=99, price=300)
         self.order = Order.objects.create(date_time=datetime(2022, 5, 17))
-        self.order.order_detail.add(OrderDetail(
-            quantity=1, product=p1), bulk=False)
-        self.order.order_detail.add(OrderDetail(
-            quantity=1, product=p2), bulk=False)
-        self.order.order_detail.add(OrderDetail(
-            quantity=10, product=p3), bulk=False)
-
-        return super().setUp()
+        self.order.order_detail.create(quantity=1, product=p1)
+        self.order.order_detail.create(quantity=1, product=p2)
+        self.order.order_detail.create(quantity=10, product=p3)
 
     def test_order_edit(self):
         data = {
@@ -148,9 +161,13 @@ class OrderEditingTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         order_data = response.data
         self.assertEqual(order_data["date_time"], "2022-01-01")
+        self.assertEqual(len(order_data["order_detail"]), 2)
         self.assertEqual(Product.objects.get(pk=1).stock, 0)
         self.assertEqual(Product.objects.get(pk=2).stock, 50)
-        self.assertEqual(len(order_data["order_detail"]), 2)
+        od = OrderDetail.objects.filter(product_id=1).first()
+        self.assertEqual(od.quantity, 100)        
+
+        
 
     def test_order_edit_stock_unavailable(self):
         data = {
@@ -175,6 +192,26 @@ class OrderEditingTest(TestCase):
         }
         response = self.client.put(
             reverse('order-list') + '1/', data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.status_code,
+                         status.HTTP_500_INTERNAL_SERVER_ERROR)
         response_data = response.data
-        self.assertEqual(response_data["detail"], "Error de integridad de datos (CHECK constraint failed: clicoh_product)")
+        self.assertEqual(
+            response_data["detail"], "Error de integridad de datos (CHECK constraint failed: clicoh_product)")
+
+
+class OrderDeletionTestCase(ClickOhTest):
+    def setUp(self) -> None:
+        super().setUp()
+        p1 = Product.objects.create(name="Silla", stock=100, price=100)
+        self.order = Order.objects.create(date_time=datetime(2022, 5, 17))
+        self.order.order_detail.add(OrderDetail(
+            quantity=10, product=p1), bulk=False)
+
+    def test_delete(self):
+        response = self.client.delete(
+            reverse('order-list') + '1/', format='json')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.assertEqual(Order.objects.count(), 0)
+        product = Product.objects.get(pk=1)
+        self.assertEqual(product.stock, 110)
