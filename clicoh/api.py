@@ -118,8 +118,4 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         Product.objects.bulk_update(bulk_product_updates, ['stock'])
 
-#        for order_detail in order.order_detail.all():
-#            Product.objects.filter(pk = order_detail.product_id).update(
-#                stock = F("stock") + order_detail.quantity)
-
         return super().perform_destroy(instance)

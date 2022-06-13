@@ -15,7 +15,7 @@ class Order(models.Model):
     date_time = models.DateTimeField(auto_now=True)
 
     def get_total(self):
-        return sum([order.quantity * order.product.price for order in OrderDetail.objects.filter(order_id=self.id)])
+        return sum([order.quantity * order.product.price for order in self.order_detail.all()])
 
     def get_total_usd(self):
         cotizacion = DolarService.cotizacion()

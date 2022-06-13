@@ -6,20 +6,22 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
 from clicoh.models import Order, OrderDetail, Product
-# Create your tests here.
 
 
 class ClickOhTest(TestCase):
-    def setUp(self) -> None:
+
+    def setUp(self):
+
         get_user_model().objects.create_user(
             username='user', password='pass', is_active=True)
 
+        self.client = APIClient()
         response = self.client.post(reverse(
             'api-jwt-auth'), {'username': 'user', 'password': 'pass'}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.token = response.data['access']
-        self.client = APIClient()
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+        access_token = response.data['access']
+
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + access_token)
 
     def test_login(self):
         response = self.client.get(
@@ -165,9 +167,7 @@ class OrderEditingTest(ClickOhTest):
         self.assertEqual(Product.objects.get(pk=1).stock, 0)
         self.assertEqual(Product.objects.get(pk=2).stock, 50)
         od = OrderDetail.objects.filter(product_id=1).first()
-        self.assertEqual(od.quantity, 100)        
-
-        
+        self.assertEqual(od.quantity, 100)
 
     def test_order_edit_stock_unavailable(self):
         data = {
