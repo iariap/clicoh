@@ -53,3 +53,20 @@ http POST https://iariap.pythonanywhere.com/api/order/ products:='{date_time:"20
 ```bash
 http DELETE https://iariap.pythonanywhere.com/api/order/1/ Authorization:"Bearer ${access_token}"
 ```
+
+# Docker
+## Construir la imagen
+```bash
+docker build . -t backend-clickoh:latest
+```
+## Levantar el backend
+
+Si la base de datos no esta creada crearla con el comando:
+ ```bash
+ touch db.sqlite3
+```
+Y luego para levantar el servicio ejecutar:
+
+```bash
+docker run -it -p 8000:8000 --mount type=bind,source=$(pwd)/db.sqlite3,target=/code/db.sqlite3 backend-clickoh:latest 
+```
