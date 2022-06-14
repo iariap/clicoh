@@ -1,4 +1,5 @@
 from datetime import datetime
+from distutils.log import error
 from itertools import product
 from django.urls import reverse
 from django.test import TestCase
@@ -124,6 +125,10 @@ class OrderCreationTest(ClickOhTest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Product.objects.get(pk=1).stock, 100)
         self.assertEqual(Product.objects.get(pk=2).stock, 100)
+        error_data = response.data
+        self.assertTrue('order_detail' in error_data)
+        errors = error_data["order_detail"]
+        self.assertTrue(len(errors) >= 1)
 
 
 class OrderEditingTest(ClickOhTest):

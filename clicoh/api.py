@@ -57,6 +57,7 @@ class OrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             order_detail_data = validated_data.pop('order_detail')
+
             with transaction.atomic():
                 order = Order.objects.create(**validated_data)
                 for od in order_detail_data:
@@ -98,6 +99,20 @@ class OrderSerializer(serializers.ModelSerializer):
                 return order
         except IntegrityError as ie:
             raise APIException(f"Error de integridad de datos ({ie.args[0]})")
+
+    def validate_order_detail(self, order_detail_attrs):
+        # no puede haber productos repetidos en la orden
+
+        # me quedo con los ids de los productos
+        id_productos = [detail["product"]["id"]
+                        for detail in order_detail_attrs]
+
+        # si hay alguno que aparezca mas de una vez hace el raise
+        if max([id_productos.count(id) for id in id_productos]) > 1:
+            raise serializers.ValidationError(
+                "Los productos no pueden repetirse dentro de la misma orden")
+
+        return order_detail_attrs
 
 
 @permission_classes([IsAuthenticated])
