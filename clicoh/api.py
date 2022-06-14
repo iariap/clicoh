@@ -60,6 +60,7 @@ class OrderSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             order = Order.objects.create(**validated_data)
             for od in order_detail_data:
+
                 order.order_detail.create(
                     quantity=od["quantity"],
                     product_id=od["product"]["id"]
@@ -67,7 +68,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
                 # actualiza el stock del producto
                 try:
-                    with transaction.atomic():  # create a savepoint
+                    with transaction.atomic():  # crea un savepoint para chequear contra la bd
                         Product.objects.filter(pk=od["product"]["id"]).update(
                             stock=F("stock") - od["quantity"])
 
@@ -111,7 +112,7 @@ class OrderSerializer(serializers.ModelSerializer):
         id_productos = [detail["product"]["id"]
                         for detail in order_detail_attrs]
 
-        # si hay alguno que aparezca mas de una vez hace el raise
+        # si hay alguno que aparezca mas de una vez levanta la excepcion de validacion
         if max([id_productos.count(id) for id in id_productos]) > 1:
             raise serializers.ValidationError(
                 "Los productos no pueden repetirse dentro de la misma orden")

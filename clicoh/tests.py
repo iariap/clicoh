@@ -41,7 +41,6 @@ class ProductTest(ClickOhTest):
         self.product = Product.objects.create(**self.product_data)
 
     def test_product_creation(self):
-        self.product_data["nombre"] = "Silla"
         response = self.client.post(
             reverse('product-list'), self.product_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -129,8 +128,8 @@ class OrderCreationTest(ClickOhTest):
         self.assertTrue('order_detail' in error_data)
         errors = error_data["order_detail"]
         self.assertTrue(len(errors) >= 1)
-        
-    def test_creacion_product_not_enough_stock(self):
+
+    def test_product_creation_not_enough_stock(self):
         self.order_data["order_detail"][0]["quantity"] = 500
 
         response = self.client.post(
@@ -141,7 +140,8 @@ class OrderCreationTest(ClickOhTest):
         error_data = response.data
         self.assertTrue('order_detail' in error_data)
         errors = error_data["order_detail"]
-        self.assertTrue(len(errors) >= 1)        
+        self.assertTrue(len(errors) >= 1)
+
 
 class OrderEditingTest(ClickOhTest):
     def setUp(self) -> None:
@@ -221,8 +221,7 @@ class OrderDeletionTestCase(ClickOhTest):
         super().setUp()
         p1 = Product.objects.create(name="Silla", stock=100, price=100)
         self.order = Order.objects.create(date_time=datetime(2022, 5, 17))
-        self.order.order_detail.add(OrderDetail(
-            quantity=10, product=p1), bulk=False)
+        self.order.order_detail.create(quantity=10, product=p1)
 
     def test_delete(self):
         response = self.client.delete(

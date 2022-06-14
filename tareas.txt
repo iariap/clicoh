@@ -1,6 +1,6 @@
-Hacer models
+X Hacer models
 X Implementar test unitario para validar los endpoints.
-API
+    API
 X    Registrar/Editar un producto
 X    Eliminar un producto
 X    Consultar un producto
@@ -10,7 +10,7 @@ X    Registrar/Editar una orden (inclusive sus detalles).
 X        Debe actualizar el stock del producto.
 X        Al crear o editar una orden validar q haya suficiente stock del producto, 
 X        En caso no contar con stock se debe retornar un error de validación.
-        Chequeos:
+         Chequeos:
 X            que la cantidad de cada producto sea mayor a 0
 X            que no se repitan productos en el mismo pedido
 X    Eliminar una orden. Restaura stock del producto
@@ -21,5 +21,5 @@ X    Order > get_total
 X    Order > get_total_usd
 
 
-Implementar autenticación basada en tokens (JWT)    
-Deployar la api en producción, por ejemplo en heroku o https://www.pythonanywhere.com/
+X Implementar autenticación basada en tokens (JWT)    
+X Deployar la api en producción, por ejemplo en heroku o https://www.pythonanywhere.com/
