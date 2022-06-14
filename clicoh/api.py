@@ -55,23 +55,27 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ('id', 'date_time', 'total', 'total_usd', 'order_detail',)
 
     def create(self, validated_data):
-        try:
-            order_detail_data = validated_data.pop('order_detail')
+        order_detail_data = validated_data.pop('order_detail')
 
-            with transaction.atomic():
-                order = Order.objects.create(**validated_data)
-                for od in order_detail_data:
-                    order.order_detail.create(
-                        quantity=od["quantity"],
-                        product_id=od["product"]["id"]
-                    )
-                    # actualiza el stock del producto
-                    Product.objects.filter(pk=od["product"]["id"]).update(
-                        stock=F("stock") - od["quantity"])
-                return order
-        except IntegrityError as ie:
-            raise serializers.ValidationError(
-                "El producto debe tener stock suficiente para registrar la orden")
+        with transaction.atomic():
+            order = Order.objects.create(**validated_data)
+            for od in order_detail_data:
+                order.order_detail.create(
+                    quantity=od["quantity"],
+                    product_id=od["product"]["id"]
+                )
+
+                # actualiza el stock del producto
+                try:
+                    with transaction.atomic():  # create a savepoint
+                        Product.objects.filter(pk=od["product"]["id"]).update(
+                            stock=F("stock") - od["quantity"])
+
+                except IntegrityError as ie:
+                    raise serializers.ValidationError({"order_detail":
+                                                       "El producto debe tener stock suficiente para registrar la orden"})
+
+            return order
 
     def update(self, order: Order, validated_data):
         order_detail_data = validated_data.pop('order_detail')

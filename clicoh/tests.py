@@ -129,7 +129,19 @@ class OrderCreationTest(ClickOhTest):
         self.assertTrue('order_detail' in error_data)
         errors = error_data["order_detail"]
         self.assertTrue(len(errors) >= 1)
+        
+    def test_creacion_product_not_enough_stock(self):
+        self.order_data["order_detail"][0]["quantity"] = 500
 
+        response = self.client.post(
+            reverse('order-list'), self.order_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Product.objects.get(pk=1).stock, 100)
+        self.assertEqual(Product.objects.get(pk=2).stock, 100)
+        error_data = response.data
+        self.assertTrue('order_detail' in error_data)
+        errors = error_data["order_detail"]
+        self.assertTrue(len(errors) >= 1)        
 
 class OrderEditingTest(ClickOhTest):
     def setUp(self) -> None:

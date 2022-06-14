@@ -1,48 +1,52 @@
-# Login
+
+
+http POST https://iariap.pythonanywhere.com/api/token/ username=admin password=admin
 
 ```bash
-http POST http://localhost:8000/api/token/ username=admin password=admin
+access_token=$(http POST https://iariap.pythonanywhere.com/api/token/ username=admin password=admin | jq '.access' -)
+access_token=${access_token//\"}
 ```
 
-# producto
+
+# productos
 
 ## Listado de productos
 ```bash
-http http://127.0.0.1:8000/api/product/ Authorization:"Bearer XXX"
+http https://iariap.pythonanywhere.com/api/product/ Authorization:"Bearer ${access_token}"
 ```
 
 ## Registrar/Editar
 ```bash
-http POST http://127.0.0.1:8000/api/product/ name="Lapicera" price=200 stock=1 Authorization:"Bearer XXX"
+http POST https://iariap.pythonanywhere.com/api/product/ name="Lapicera" price=200 stock=1 Authorization:"Bearer ${access_token}"
 ```
 
 ## Eliminar
 ```bash
-http DELETE http://127.0.0.1:8000/api/product/2/ Authorization:"Bearer XXX"
+http DELETE https://iariap.pythonanywhere.com/api/product/2/ Authorization:"Bearer ${access_token}"
 ```
 
 ## Consultar un producto
 ```bash
-http http://127.0.0.1:8000/api/product/2/ Authorization:"Bearer XXX"
+http https://iariap.pythonanywhere.com/api/product/2/ Authorization:"Bearer ${access_token}"
 ```
 
 ## Modificar el stock
 ```bash
-http PATCH http://127.0.0.1:8000/api/product/1/ stock=26 Authorization:"Bearer XXX"
+http PATCH https://iariap.pythonanywhere.com/api/product/1/ stock=26 Authorization:"Bearer ${access_token}"
 ```
 
 # Crear una orden
 ## Con quantity mas grande que el stock
 ```bash
-http POST http://localhost:8000/api/order/ products:='[{"product_id":1, "quantity":20}]'
+http POST https://iariap.pythonanywhere.com/api/order/ date_time="2022-06-14" order_detail:='[{"product":{"id": 1}, "quantity":2}, {"product":{"id":2}, "quantity":200}]' Authorization:"Bearer ${access_token}"
 ```
 
 ## El producto se encuentra repetido en la orden
 ```bash
-http POST http://localhost:8000/order/place_order/ products:='[{"product_id":1, "quantity":2}, {"product_id":1, "quantity":2}]'
+http POST https://iariap.pythonanywhere.com/api/order/ date_time="2022-06-14" order_detail:='[{"product":{"id": 1}, "quantity":2}, {"product":{"id":1}, "quantity":2}]' Authorization:"Bearer ${access_token}"
 ```
 
 ## Creacion OK
 ```bash
-http POST http://localhost:8000/order/place_order/ products:='[{"product_id":1, "quantity":2}, {"product_id":2, "quantity":2}]'
+http POST https://iariap.pythonanywhere.com/api/order/ products:='{date_time:"2022-06-14", order_detail:[{"product_id":1, "quantity":2}, {"product_id":2, "quantity":2}]}' Authorization:"Bearer ${access_token}"
 ```
