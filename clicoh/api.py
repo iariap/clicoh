@@ -73,7 +73,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
                 except IntegrityError as ie:
                     raise serializers.ValidationError({"order_detail":
-                                                       "El producto debe tener stock suficiente para registrar la orden"})
+                                                       ["El producto debe tener stock suficiente para registrar la orden"]})
 
             return order
 
