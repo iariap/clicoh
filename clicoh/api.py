@@ -71,7 +71,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 return order
         except IntegrityError as ie:
             raise serializers.ValidationError(
-                "El producto se encuentra mas de una vez para la orden", code=500)
+                "El producto debe tener stock suficiente para registrar la orden")
 
     def update(self, order: Order, validated_data):
         order_detail_data = validated_data.pop('order_detail')
